@@ -12,7 +12,8 @@ interface GenerateThumbnailParams {
   refinements?: Refinements;
 }
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+// Fix: Use process.env.API_KEY and initialize GoogleGenAI directly as per guidelines. This resolves the TypeScript error 'Property 'env' does not exist on type 'ImportMeta''.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 function buildPrompt(params: GenerateThumbnailParams): string {
     const { title, concept, backgroundConcept, mood, imageReaction, thumbnailStyle, refinements } = params;

@@ -31,13 +31,15 @@ const App: React.FC = () => {
       setError('Please upload an image first.');
       return;
     }
-    if (!title) {
-        setError('Please enter a title.');
+    if (!title || !concept || !backgroundConcept) {
+        setError('Please fill out the Title, Core Concept, and Background Concept fields.');
         return;
     }
     setIsLoading(true);
     setError(null);
-    setGeneratedThumbnail(null);
+    if (!isRefinement) {
+        setGeneratedThumbnail(null);
+    }
 
     try {
       const result = await generateThumbnail({
@@ -53,7 +55,8 @@ const App: React.FC = () => {
       setGeneratedThumbnail(`data:image/png;base64,${result}`);
     } catch (e) {
       console.error(e);
-      setError('Failed to generate thumbnail. Please check your API key and try again.');
+      const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred.';
+      setError(`Failed to generate thumbnail. Reason: ${errorMessage}`);
     } finally {
       setIsLoading(false);
     }

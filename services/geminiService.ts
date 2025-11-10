@@ -98,8 +98,18 @@ export const generateThumbnail = async (params: GenerateThumbnailParams): Promis
     },
   });
 
-  for (const part of response.candidates[0].content.parts) {
-    if (part.inlineData) {
+  if (!response.candidates || response.candidates.length === 0) {
+    throw new Error("The AI did not return a response. This can happen due to safety filters. Please adjust your prompt and try again.");
+  }
+  
+  const candidate = response.candidates[0];
+
+  if (!candidate.content || !candidate.content.parts) {
+      throw new Error("Invalid response structure from the API.");
+  }
+
+  for (const part of candidate.content.parts) {
+    if (part.inlineData && part.inlineData.data) {
       return part.inlineData.data;
     }
   }

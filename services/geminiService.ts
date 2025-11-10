@@ -19,7 +19,7 @@ interface GenerateThumbnailParams {
 }
 
 // ✅ Securely read from Vercel Environment Variable
-const apiKey = process.env.API_KEY;
+const apiKey = import.meta.env.VITE_API_KEY;
 
 if (!apiKey) {
   throw new Error(

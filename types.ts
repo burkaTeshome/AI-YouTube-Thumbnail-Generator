@@ -27,3 +27,11 @@ export interface Refinements {
   color: string;
   layout: string;
 }
+
+export interface ThumbnailSuggestion {
+  title: string;
+  backgroundConcept: string;
+  mood: Mood;
+  imageReaction: ImageReaction;
+  thumbnailStyle: ThumbnailStyle;
+}

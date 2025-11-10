@@ -1,14 +1,22 @@
 import React from 'react';
-import { Mood, ImageReaction, Refinements, ThumbnailStyle } from '../types';
-import { UploadIcon, RefreshIcon, SparklesIcon } from './IconComponents';
+import { Mood, ImageReaction, Refinements, ThumbnailStyle, ThumbnailSuggestion } from '../types';
+import { UploadIcon, RefreshIcon, SparklesIcon, LightBulbIcon } from './IconComponents';
+import { SuggestionCard } from './SuggestionCard';
+
 
 interface ControlsPanelProps {
   uploadedImage: { base64: string; mimeType: string } | null;
   setUploadedImage: (image: { base64: string; mimeType: string } | null) => void;
+  
+  videoDescription: string;
+  setVideoDescription: (description: string) => void;
+  onBrainstorm: () => void;
+  isBrainstorming: boolean;
+  suggestions: ThumbnailSuggestion[] | null;
+  onSelectSuggestion: (suggestion: ThumbnailSuggestion) => void;
+  
   title: string;
   setTitle: (title: string) => void;
-  concept: string;
-  setConcept: (concept: string) => void;
   backgroundConcept: string;
   setBackgroundConcept: (concept: string) => void;
   mood: Mood;
@@ -17,6 +25,7 @@ interface ControlsPanelProps {
   setImageReaction: (reaction: ImageReaction) => void;
   thumbnailStyle: ThumbnailStyle;
   setThumbnailStyle: (style: ThumbnailStyle) => void;
+
   refinements: Refinements;
   setRefinements: (refinements: Refinements) => void;
   onGenerate: (isRefinement: boolean) => void;
@@ -51,10 +60,14 @@ const Select: React.FC<React.SelectHTMLAttributes<HTMLSelectElement>> = (props) 
 export const ControlsPanel: React.FC<ControlsPanelProps> = ({
   uploadedImage,
   setUploadedImage,
+  videoDescription,
+  setVideoDescription,
+  onBrainstorm,
+  isBrainstorming,
+  suggestions,
+  onSelectSuggestion,
   title,
   setTitle,
-  concept,
-  setConcept,
   backgroundConcept,
   setBackgroundConcept,
   mood,
@@ -85,11 +98,9 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
 
           if (!ctx) return;
 
-          // Fill background with black
           ctx.fillStyle = '#000000';
           ctx.fillRect(0, 0, targetWidth, targetHeight);
 
-          // Calculate new dimensions to fit inside the canvas, preserving aspect ratio
           const imgAspectRatio = img.width / img.height;
           const canvasAspectRatio = targetWidth / targetHeight;
           let drawWidth = targetWidth;
@@ -107,7 +118,6 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
           
           ctx.drawImage(img, x, y, drawWidth, drawHeight);
 
-          // Using JPEG for efficiency as we're adding a solid background
           const mimeType = 'image/jpeg';
           const base64 = canvas.toDataURL(mimeType).split(',')[1];
           
@@ -156,22 +166,38 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
         </div>
       </ControlSection>
 
-      <ControlSection title="2. Define Content">
+      <ControlSection title="2. Get AI Ideas">
+          <div>
+              <Label htmlFor="video-description">Describe your video</Label>
+              <Textarea id="video-description" value={videoDescription} onChange={(e) => setVideoDescription(e.target.value)} placeholder="e.g., A quick tutorial showing how to make the best chocolate chip cookies..." rows={3} />
+              <button
+                  onClick={onBrainstorm}
+                  disabled={isBrainstorming || !videoDescription}
+                  className="w-full mt-3 flex items-center justify-center bg-gray-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                  {isBrainstorming ? <RefreshIcon className="w-5 h-5 animate-spin mr-2" /> : <LightBulbIcon className="w-5 h-5 mr-2" />}
+                  {isBrainstorming ? 'Brainstorming...' : 'Brainstorm Thumbnail Ideas'}
+              </button>
+          </div>
+          {suggestions && suggestions.length > 0 && (
+              <div className="mt-4 space-y-3">
+                  <h4 className="text-md font-semibold text-dark-text">AI Suggestions:</h4>
+                  {suggestions.map((suggestion, index) => (
+                      <SuggestionCard key={index} suggestion={suggestion} onSelect={onSelectSuggestion} />
+                  ))}
+              </div>
+          )}
+      </ControlSection>
+      
+      <ControlSection title="3. Customize & Generate">
         <div>
           <Label htmlFor="title">Video Title</Label>
           <Input id="title" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g., How to Bake a Cake" />
         </div>
         <div>
-          <Label htmlFor="concept">Core Concept</Label>
-          <Textarea id="concept" value={concept} onChange={(e) => setConcept(e.target.value)} placeholder="e.g., A simple recipe for beginners..." rows={2} />
-        </div>
-        <div>
           <Label htmlFor="background-concept">Background Concept</Label>
           <Textarea id="background-concept" value={backgroundConcept} onChange={(e) => setBackgroundConcept(e.target.value)} placeholder="e.g., A futuristic city skyline at night" rows={2} />
         </div>
-      </ControlSection>
-
-      <ControlSection title="3. Set The Mood & Style">
         <div>
           <Label htmlFor="mood">Video Mood</Label>
           <Select id="mood" value={mood} onChange={(e) => setMood(e.target.value as Mood)}>
@@ -191,7 +217,7 @@ export const ControlsPanel: React.FC<ControlsPanelProps> = ({
           </Select>
         </div>
       </ControlSection>
-      
+
       <div className="mt-8">
         <button
           onClick={() => onGenerate(false)}

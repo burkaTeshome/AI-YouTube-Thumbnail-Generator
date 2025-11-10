@@ -1,6 +1,5 @@
-
-import { GoogleGenAI, Modality } from "@google/genai";
-import { Mood, ImageReaction, Refinements, ThumbnailStyle } from '../types';
+import { GoogleGenAI, Modality, Type } from "@google/genai";
+import { Mood, ImageReaction, Refinements, ThumbnailStyle, ThumbnailSuggestion } from '../types';
 
 interface GenerateThumbnailParams {
   image: { base64: string; mimeType: string };
@@ -13,11 +12,9 @@ interface GenerateThumbnailParams {
   refinements?: Refinements;
 }
 
-// FIX: Switched from `import.meta.env.VITE_API_KEY` to `process.env.API_KEY` to align with coding guidelines and fix the TypeScript error.
 const apiKey = process.env.API_KEY;
 
 if (!apiKey) {
-  // This error will be thrown during initialization, making it clear that the API key is missing.
   throw new Error("The API_KEY environment variable is not set. Please ensure it is configured.");
 }
 
@@ -66,13 +63,16 @@ function buildPrompt(params: GenerateThumbnailParams): string {
     **Refinement Instructions:**
     Please apply the following changes to the design:`;
         if (refinements.brightness !== 'normal') {
-            prompt += `\n- Adjust brightness to be ${refinements.brightness}.`;
+            prompt += `
+- Adjust brightness to be ${refinements.brightness}.`;
         }
         if (refinements.color) {
-            prompt += `\n- Incorporate a color palette of: ${refinements.color}.`;
+            prompt += `
+- Incorporate a color palette of: ${refinements.color}.`;
         }
         if (refinements.layout) {
-            prompt += `\n- Follow this layout instruction: ${refinements.layout}.`;
+            prompt += `
+- Follow this layout instruction: ${refinements.layout}.`;
         }
     }
     
@@ -82,6 +82,74 @@ function buildPrompt(params: GenerateThumbnailParams): string {
 
     return prompt;
 }
+
+export const generateSuggestions = async (videoDescription: string): Promise<ThumbnailSuggestion[]> => {
+  const model = 'gemini-2.5-flash';
+
+  const prompt = `
+    You are a viral YouTube strategist and an expert in creating clickable thumbnail concepts.
+    Based on the following video description, generate 3 distinct and compelling thumbnail ideas.
+    Each idea must be creative, eye-catching, and tailored to maximize click-through rate.
+
+    Video Description: "${videoDescription}"
+
+    For each idea, provide a concise and punchy title, a vivid background concept, and the most suitable mood, subject reaction, and artistic style from the provided options.
+    - Mood options: ${Object.values(Mood).join(', ')}
+    - Subject's Reaction options: ${Object.values(ImageReaction).join(', ')}
+    - Artistic Style options: ${Object.values(ThumbnailStyle).join(', ')}
+
+    Return the ideas in a JSON array format.
+  `;
+
+  const response = await ai.models.generateContent({
+    model,
+    contents: prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: {
+          type: Type.OBJECT,
+          properties: {
+            title: {
+              type: Type.STRING,
+              description: 'A short, catchy, and click-bait friendly title for the thumbnail text.'
+            },
+            backgroundConcept: {
+              type: Type.STRING,
+              description: 'A vivid and exciting concept for the thumbnail background.'
+            },
+            mood: {
+              type: Type.STRING,
+              enum: Object.values(Mood),
+              description: 'The overall mood of the thumbnail.'
+            },
+            imageReaction: {
+              type: Type.STRING,
+              enum: Object.values(ImageReaction),
+              description: "The desired reaction of the subject in the image."
+            },
+            thumbnailStyle: {
+              type: Type.STRING,
+              enum: Object.values(ThumbnailStyle),
+              description: 'The artistic style of the thumbnail.'
+            }
+          },
+          required: ['title', 'backgroundConcept', 'mood', 'imageReaction', 'thumbnailStyle']
+        }
+      }
+    }
+  });
+
+  const jsonText = response.text.trim();
+  try {
+    const suggestions = JSON.parse(jsonText);
+    return suggestions as ThumbnailSuggestion[];
+  } catch (e) {
+    console.error("Failed to parse suggestions JSON:", jsonText, e);
+    throw new Error("Failed to get valid suggestions from the AI.");
+  }
+};
 
 
 export const generateThumbnail = async (params: GenerateThumbnailParams): Promise<string> => {

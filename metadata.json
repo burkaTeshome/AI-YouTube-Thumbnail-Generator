@@ -1,0 +1,5 @@
+{
+  "name": "AI YouTube Thumbnail Generator",
+  "description": "An AI-powered tool to generate stunning, high-contrast YouTube thumbnails. Users can upload an image, provide a title and concept, and let the AI design an eye-catching thumbnail. Features include mood-based styling, editing refinements, and download options.",
+  "requestFramePermissions": []
+}

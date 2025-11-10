@@ -1,5 +1,11 @@
 import { GoogleGenAI, Modality, Type } from "@google/genai";
-import { Mood, ImageReaction, Refinements, ThumbnailStyle, ThumbnailSuggestion } from '../types';
+import {
+  Mood,
+  ImageReaction,
+  Refinements,
+  ThumbnailStyle,
+  ThumbnailSuggestion,
+} from "../types";
 
 interface GenerateThumbnailParams {
   image: { base64: string; mimeType: string };
@@ -12,98 +18,123 @@ interface GenerateThumbnailParams {
   refinements?: Refinements;
 }
 
+// ✅ Securely read from Vercel Environment Variable
 const apiKey = process.env.API_KEY;
 
 if (!apiKey) {
-  throw new Error("The API_KEY environment variable is not set. Please ensure it is configured.");
+  throw new Error(
+    "❌ Missing API_KEY. Set it in your Vercel project under Settings → Environment Variables."
+  );
 }
 
+// Initialize the Gemini API client
 const ai = new GoogleGenAI({ apiKey });
 
-
+// -------------------- PROMPT BUILDER --------------------
 function buildPrompt(params: GenerateThumbnailParams): string {
-    const { title, concept, backgroundConcept, mood, imageReaction, thumbnailStyle, refinements } = params;
+  const {
+    title,
+    concept,
+    backgroundConcept,
+    mood,
+    imageReaction,
+    thumbnailStyle,
+    refinements,
+  } = params;
 
-    const moodInstructions: Record<Mood, string> = {
-        [Mood.ENERGETIC]: 'EXTREMELY HIGH ENERGY. Use vibrant, neon, saturated colors like electric blues and hot pinks. Add dynamic motion blur, glowing light trails, speed lines, and maybe even a subtle particle effect. The composition should feel explosive and exciting. Text might have a slight italic slant for motion.',
-        [Mood.DRAMATIC]: 'CINEMATIC & SERIOUS. Create a high-contrast scene with deep, crushed shadows and strong highlights (like rim lighting). Use a moody, cinematic color grade (e.g., teal and orange). Consider adding atmospheric elements like subtle fog, dust particles, or a light film grain for texture.',
-        [Mood.PROFESSIONAL]: 'CLEAN & POLISHED. Design a minimalist and modern layout. Use a sophisticated, limited color palette (e.g., blues, dark grays, white with a single accent color). Graphics should be sharp and iconography simple. The overall feeling must be trustworthy, sleek, and premium.',
-        [Mood.FUNNY]: 'PLAYFUL & COMICAL. Use bright, candy-like colors. The subject\'s expression should be exaggerated. Incorporate cartoonish elements like oversized text, quirky icons, or even a subtle "comic book" style effect. The composition should feel fun and not take itself too seriously.',
-        [Mood.INSPIRATIONAL]: 'UPLIFTING & HOPEFUL. Use soft, warm lighting, like a golden hour glow. The color palette should be bright and optimistic. Add subtle light leaks, lens flares, or soft glows to enhance the mood. The scene should feel expansive and positive.'
-    };
+  const moodInstructions: Record<Mood, string> = {
+    [Mood.ENERGETIC]:
+      "EXTREMELY HIGH ENERGY. Use vibrant, neon, saturated colors like electric blues and hot pinks...",
+    [Mood.DRAMATIC]:
+      "CINEMATIC & SERIOUS. Create a high-contrast scene with deep shadows and strong highlights...",
+    [Mood.PROFESSIONAL]:
+      "CLEAN & POLISHED. Use a minimalist and modern design with professional color palettes...",
+    [Mood.FUNNY]:
+      "PLAYFUL & COMICAL. Use bright colors, exaggerated expressions, and comic-style design...",
+    [Mood.INSPIRATIONAL]:
+      "UPLIFTING & HOPEFUL. Use warm lighting, bright tones, and optimistic composition...",
+  };
 
-    let prompt = `
-    You are an expert YouTube thumbnail designer, a master of viral aesthetics. Your mission is to create a visually stunning, high-contrast thumbnail that is guaranteed to grab attention and get clicks.
+  let prompt = `
+You are an expert YouTube thumbnail designer. Create a visually stunning 16:9 thumbnail that is guaranteed to grab attention.
 
-    **CRITICAL REQUIREMENT:** The final output image MUST have a 16:9 aspect ratio. This is the most important rule.
+**Requirements:**
+1. Replace the background with: "${backgroundConcept}" while preserving the subject.
+2. Use the title: "${title}" — bold, modern sans-serif font (Bebas Neue, Montserrat ExtraBold, Impact).
+3. Represent the concept: "${concept}".
+4. Mood: **${mood}** — ${moodInstructions[mood]}.
+5. Style: **${thumbnailStyle}**.
+6. Subject expression: **${imageReaction}**.
+7. Maintain perfect 16:9 ratio and balance.
 
-    **Instructions:**
-    1.  **Main Subject & Composition:** The user has provided a source image that is already framed within a 16:9 aspect ratio canvas (it may have black bars). Your task is to replace the entire background (including any black bars) with a new, compelling scene based on this description: "${backgroundConcept}".
-        - **CRITICAL RULE:** The final output image's dimensions and aspect ratio MUST EXACTLY match the input image's 16:9 aspect ratio. Do not change the framing.
-        - **SUBJECT INTEGRATION:** The main subject from the source image must be perfectly preserved and seamlessly integrated into the new background.
-        - **FACE PRESERVATION:** If the image contains a person, it is **absolutely critical** that their face is fully visible and not cropped, just as it is in the source image.
-    
-    2.  **Title Text & Typography:** This is the most critical element for clicks.
-        - **Text:** The title is "${title}".
-        - **Font Style:** Use a **very bold, modern, sans-serif font**. Think fonts like 'Bebas Neue', 'Montserrat ExtraBold', or 'Impact'. The font must feel clean and professional, suitable for a top-tier YouTube creator.
-        - **Legibility:** The text MUST be instantly readable, even on small mobile screens. Achieve this with **extreme contrast**. Use techniques like a **thick, clean outline (often black or a dark color)**, a subtle drop shadow, or by placing the text inside a solid colored shape (a "text box").
-        - **Color Palette:** Use a **minimal, high-contrast color palette for the text**. White is often the best choice for the main text fill. You can use a single, vibrant accent color (e.g., yellow, cyan) for emphasis on one or two key words if it fits the mood. **Avoid rainbow gradients or colors that clash with the background.**
-        - **Placement:** Position the text strategically following the rule of thirds. It should complement the main subject, not obscure it.
-        - **CRITICAL TEXT RULE:** The title text must be fully visible and must not be cropped or cut off at the edges of the image. Ensure ample padding around the text.
+`;
 
-    3.  **Core Concept:** The video is about "${concept}". The entire thumbnail design should visually represent this idea.
-    4.  **Mood and Style:** The desired mood is **${mood}**. Adhere to the following highly-detailed style guide: ${moodInstructions[mood]}
-    5.  **Artistic Style:** The overall artistic style of the thumbnail should be **${thumbnailStyle}**.
-    6.  **Subject's Expression:** If the subject is a person, ensure their expression is **${imageReaction}**. You may need to subtly enhance or alter the expression to fit this requirement.
-    7.  **Overall Composition:** Create a dynamic and balanced composition. Use the rule of thirds, leading lines, and a clear focal point. The final image should be exciting and professional.
-    `;
-
-    if (refinements && (refinements.brightness !== 'normal' || refinements.color || refinements.layout)) {
-        prompt += `
-    **Refinement Instructions:**
-    Please apply the following changes to the design:`;
-        if (refinements.brightness !== 'normal') {
-            prompt += `
-- Adjust brightness to be ${refinements.brightness}.`;
-        }
-        if (refinements.color) {
-            prompt += `
-- Incorporate a color palette of: ${refinements.color}.`;
-        }
-        if (refinements.layout) {
-            prompt += `
-- Follow this layout instruction: ${refinements.layout}.`;
-        }
-    }
-    
+  if (
+    refinements &&
+    (refinements.brightness !== "normal" ||
+      refinements.color ||
+      refinements.layout)
+  ) {
     prompt += `
-    **Final Output:**
-    Produce a single, complete 16:9 image. Re-confirm that the aspect ratio is exactly 16:9. Do not include any watermarks, text other than the specified title, or placeholders. The result should be ready to be used as a YouTube thumbnail immediately.`;
+**Refinements:**`;
+    if (refinements.brightness !== "normal") {
+      prompt += `\n- Brightness: ${refinements.brightness}.`;
+    }
+    if (refinements.color) {
+      prompt += `\n- Color palette: ${refinements.color}.`;
+    }
+    if (refinements.layout) {
+      prompt += `\n- Layout instruction: ${refinements.layout}.`;
+    }
+  }
 
-    return prompt;
+  prompt += `
+**Final Output:** 
+Produce one polished, high-quality 16:9 image with no text other than the title. 
+Ensure readability, perfect aspect ratio, and professional design.
+`;
+
+  return prompt;
 }
 
-export const generateSuggestions = async (videoDescription: string): Promise<ThumbnailSuggestion[]> => {
-  const model = 'gemini-2.5-flash';
+// -------------------- GENERATE SUGGESTIONS --------------------
+export const generateSuggestions = async (
+  videoDescription: string
+): Promise<ThumbnailSuggestion[]> => {
+  const model = "gemini-2.5-flash";
 
   const prompt = `
-    You are a viral YouTube strategist and an expert in creating clickable thumbnail concepts.
-    Based on the following video description, generate 3 distinct and compelling thumbnail ideas.
-    Each idea must be creative, eye-catching, and tailored to maximize click-through rate.
+You are a viral YouTube strategist.
+Based on this video description, create 3 clickable thumbnail ideas.
 
-    Video Description: "${videoDescription}"
+Description: "${videoDescription}"
 
-    For each idea, provide a concise and punchy title, a vivid background concept, and the most suitable mood, subject reaction, and artistic style from the provided options.
-    - Mood options: ${Object.values(Mood).join(', ')}
-    - Subject's Reaction options: ${Object.values(ImageReaction).join(', ')}
-    - Artistic Style options: ${Object.values(ThumbnailStyle).join(', ')}
+Each idea should include:
+- A short, catchy title
+- A vivid background concept
+- A mood
+- A subject reaction
+- An artistic style
 
-    Return the ideas in a JSON array format.
-  `;
+Mood options: ${Object.values(Mood).join(", ")}
+Reactions: ${Object.values(ImageReaction).join(", ")}
+Styles: ${Object.values(ThumbnailStyle).join(", ")}
+
+Return a valid JSON array with 3 objects in this format:
+[
+  {
+    "title": "...",
+    "backgroundConcept": "...",
+    "mood": "...",
+    "imageReaction": "...",
+    "thumbnailStyle": "..."
+  }
+]
+`;
 
   const response = await ai.models.generateContent({
     model,
-    contents: prompt,
+    contents: [{ text: prompt }],
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -111,50 +142,39 @@ export const generateSuggestions = async (videoDescription: string): Promise<Thu
         items: {
           type: Type.OBJECT,
           properties: {
-            title: {
-              type: Type.STRING,
-              description: 'A short, catchy, and click-bait friendly title for the thumbnail text.'
-            },
-            backgroundConcept: {
-              type: Type.STRING,
-              description: 'A vivid and exciting concept for the thumbnail background.'
-            },
-            mood: {
-              type: Type.STRING,
-              enum: Object.values(Mood),
-              description: 'The overall mood of the thumbnail.'
-            },
-            imageReaction: {
-              type: Type.STRING,
-              enum: Object.values(ImageReaction),
-              description: "The desired reaction of the subject in the image."
-            },
-            thumbnailStyle: {
-              type: Type.STRING,
-              enum: Object.values(ThumbnailStyle),
-              description: 'The artistic style of the thumbnail.'
-            }
+            title: { type: Type.STRING },
+            backgroundConcept: { type: Type.STRING },
+            mood: { type: Type.STRING, enum: Object.values(Mood) },
+            imageReaction: { type: Type.STRING, enum: Object.values(ImageReaction) },
+            thumbnailStyle: { type: Type.STRING, enum: Object.values(ThumbnailStyle) },
           },
-          required: ['title', 'backgroundConcept', 'mood', 'imageReaction', 'thumbnailStyle']
-        }
-      }
-    }
+          required: [
+            "title",
+            "backgroundConcept",
+            "mood",
+            "imageReaction",
+            "thumbnailStyle",
+          ],
+        },
+      },
+    },
   });
 
-  const jsonText = response.text.trim();
+  const text = response.text?.trim();
   try {
-    const suggestions = JSON.parse(jsonText);
+    const suggestions = JSON.parse(text);
     return suggestions as ThumbnailSuggestion[];
-  } catch (e) {
-    console.error("Failed to parse suggestions JSON:", jsonText, e);
-    throw new Error("Failed to get valid suggestions from the AI.");
+  } catch (err) {
+    console.error("❌ Failed to parse AI response:", text);
+    throw new Error("AI returned invalid JSON format for suggestions.");
   }
 };
 
-
-export const generateThumbnail = async (params: GenerateThumbnailParams): Promise<string> => {
-  const model = 'gemini-2.5-flash-image';
-  
+// -------------------- GENERATE THUMBNAIL IMAGE --------------------
+export const generateThumbnail = async (
+  params: GenerateThumbnailParams
+): Promise<string> => {
+  const model = "gemini-2.5-flash-image";
   const prompt = buildPrompt(params);
 
   const imagePart = {
@@ -163,34 +183,28 @@ export const generateThumbnail = async (params: GenerateThumbnailParams): Promis
       mimeType: params.image.mimeType,
     },
   };
-  
+
   const textPart = { text: prompt };
 
   const response = await ai.models.generateContent({
-    model: model,
-    contents: {
-      parts: [imagePart, textPart],
-    },
-    config: {
-        responseModalities: [Modality.IMAGE],
-    },
+    model,
+    contents: { parts: [imagePart, textPart] },
+    config: { responseModalities: [Modality.IMAGE] },
   });
 
-  if (!response.candidates || response.candidates.length === 0) {
-    throw new Error("The AI did not return a response. This can happen due to safety filters. Please adjust your prompt and try again.");
+  if (!response.candidates?.length) {
+    throw new Error(
+      "❌ No response from Gemini API — possibly blocked by safety filters. Try adjusting your input."
+    );
   }
-  
+
   const candidate = response.candidates[0];
 
-  if (!candidate.content || !candidate.content.parts) {
-      throw new Error("Invalid response structure from the API.");
-  }
-
-  for (const part of candidate.content.parts) {
-    if (part.inlineData && part.inlineData.data) {
+  for (const part of candidate.content?.parts ?? []) {
+    if (part.inlineData?.data) {
       return part.inlineData.data;
     }
   }
 
-  throw new Error("No image data found in the response from Gemini API.");
+  throw new Error("❌ No image data returned from Gemini API.");
 };
